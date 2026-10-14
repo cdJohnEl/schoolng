@@ -11,27 +11,16 @@ import {
   LayoutDashboard, Users, CreditCard, CalendarCheck,
   BarChart3, FileText, MessageSquare, UserCog,
   Settings, LogOut, ChevronDown, GraduationCap, CreditCard as BillingIcon,
-  ListChecks, ArrowUpCircle,
+  ListChecks, ArrowUpCircle, ClipboardList, ShieldCheck
 } from "lucide-react";
-
-const NAV = [
-  { label: "Dashboard",      href: "/dashboard",      icon: LayoutDashboard },
-  { label: "Students",       href: "/students",       icon: Users },
-  { label: "Fees",           href: "/fees",           icon: CreditCard },
-  { label: "Attendance",     href: "/attendance",     icon: CalendarCheck },
-  { label: "Results",        href: "/results",        icon: BarChart3 },
-  { label: "Report cards",   href: "/report-cards",   icon: FileText },
-  { label: "Staff",          href: "/staff",          icon: UserCog },
-  { label: "Communications", href: "/communications", icon: MessageSquare },
-  { label: "Fee structure",  href: "/fees/structure", icon: ListChecks },
-  { label: "Promote students", href: "/students/promote", icon: ArrowUpCircle },
-  { label: "Settings",       href: "/settings",       icon: Settings },
-];
 
 export default function Sidebar() {
   const pathname = usePathname();
   const { appUser, user, signOut } = useAuth();
   const [schoolName, setSchoolName] = useState("");
+
+  const isTeacher = appUser?.role === "teacher";
+  const isSuperAdmin = appUser?.role === "super_admin";
 
   const displayName = user?.displayName ?? "Admin";
   const email       = user?.email ?? "";
@@ -45,6 +34,31 @@ export default function Sidebar() {
       .then(snap => { if (snap.exists()) setSchoolName(snap.data().name ?? ""); })
       .catch(() => {});
   }, [appUser?.schoolId]);
+
+  // Role-tailored navigation items
+  const navItems = isTeacher
+    ? [
+        { label: "Teacher Dashboard", href: "/dashboard", icon: LayoutDashboard },
+        { label: "Students",          href: "/students",  icon: Users },
+        { label: "Attendance",        href: "/attendance", icon: CalendarCheck },
+        { label: "Results",           href: "/results",   icon: BarChart3 },
+        { label: "Report cards",      href: "/report-cards", icon: FileText },
+        { label: "Tests & Exams",     href: "/exams",     icon: ClipboardList },
+      ]
+    : [
+        { label: "Dashboard",        href: "/dashboard",        icon: LayoutDashboard },
+        { label: "Students",         href: "/students",         icon: Users },
+        { label: "Attendance",       href: "/attendance",       icon: CalendarCheck },
+        { label: "Results",          href: "/results",          icon: BarChart3 },
+        { label: "Report cards",     href: "/report-cards",     icon: FileText },
+        { label: "Tests & Exams",    href: "/exams",            icon: ClipboardList },
+        { label: "Fees",             href: "/fees",             icon: CreditCard },
+        { label: "Fee structure",    href: "/fees/structure",   icon: ListChecks },
+        { label: "Staff",            href: "/staff",            icon: UserCog },
+        { label: "Communications",   href: "/communications",   icon: MessageSquare },
+        { label: "Promote students", href: "/students/promote", icon: ArrowUpCircle },
+        { label: "Settings",         href: "/settings",         icon: Settings },
+      ];
 
   return (
     <aside className="fixed inset-y-0 left-0 z-40 flex flex-col w-[var(--sidebar-width)]
@@ -61,18 +75,42 @@ export default function Sidebar() {
         </div>
       </div>
 
+      {/* Super Admin Quick Link */}
+      {isSuperAdmin && (
+        <div className="px-3 pt-3">
+          <Link
+            href="/admin"
+            className={cn(
+              "flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs font-semibold transition-all border",
+              pathname.startsWith("/admin")
+                ? "bg-purple-600 text-white border-purple-500"
+                : "bg-purple-950/40 text-purple-300 border-purple-800/60 hover:bg-purple-900/40"
+            )}
+          >
+            <ShieldCheck className="w-4 h-4 text-purple-400" />
+            <span>Platform Admin Portal</span>
+          </Link>
+        </div>
+      )}
+
       {/* School chip */}
       <div className="px-3 py-3 border-b border-gray-800">
         <div className="flex items-center gap-2.5 px-2.5 py-2 rounded-lg bg-gray-900">
-          <div className="w-7 h-7 rounded-md bg-brand-900 flex items-center justify-center flex-shrink-0">
-            <GraduationCap className="w-3.5 h-3.5 text-brand-400" />
+          <div className={cn(
+            "w-7 h-7 rounded-md flex items-center justify-center flex-shrink-0",
+            isTeacher ? "bg-emerald-950 text-emerald-400" : "bg-brand-900 text-brand-400"
+          )}>
+            <GraduationCap className="w-3.5 h-3.5" />
           </div>
           <div className="flex-1 min-w-0">
             <p className="text-xs font-medium text-gray-200 truncate leading-none">
               {schoolName || "My School"}
             </p>
-            <p className="text-[10px] text-gray-500 mt-0.5 capitalize">
-              {appUser?.role ?? "proprietor"}
+            <p className={cn(
+              "text-[10px] mt-0.5 capitalize font-medium",
+              isTeacher ? "text-emerald-400" : isSuperAdmin ? "text-purple-400" : "text-gray-400"
+            )}>
+              {isTeacher ? "Teacher Portal" : isSuperAdmin ? "Super Admin" : (appUser?.role ?? "proprietor")}
             </p>
           </div>
           <ChevronDown className="w-3.5 h-3.5 text-gray-600" />
@@ -81,7 +119,7 @@ export default function Sidebar() {
 
       {/* Nav */}
       <nav className="flex-1 px-3 py-4 space-y-0.5">
-        {NAV.map(({ label, href, icon: Icon }) => (
+        {navItems.map(({ label, href, icon: Icon }) => (
           <Link key={href} href={href}
             className={cn(
               "flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-all",
@@ -95,19 +133,21 @@ export default function Sidebar() {
         ))}
       </nav>
 
-      {/* Billing */}
-      <div className="px-3 pb-3 border-t border-gray-800 pt-3">
-        <Link href="/billing"
-          className={cn(
-            "flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-all",
-            active("/billing")
-              ? "bg-brand-600 text-white font-medium"
-              : "text-gray-400 hover:text-gray-100 hover:bg-gray-800"
-          )}>
-          <BillingIcon className="w-4 h-4 flex-shrink-0" />
-          Billing
-        </Link>
-      </div>
+      {/* Billing (Hidden for teachers) */}
+      {!isTeacher && (
+        <div className="px-3 pb-3 border-t border-gray-800 pt-3">
+          <Link href="/billing"
+            className={cn(
+              "flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-all",
+              active("/billing")
+                ? "bg-brand-600 text-white font-medium"
+                : "text-gray-400 hover:text-gray-100 hover:bg-gray-800"
+            )}>
+            <BillingIcon className="w-4 h-4 flex-shrink-0" />
+            Billing
+          </Link>
+        </div>
+      )}
 
       {/* User footer */}
       <div className="px-3 py-4 border-t border-gray-800">

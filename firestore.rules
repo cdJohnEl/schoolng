@@ -1,60 +1,125 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    function isAuth() { return request.auth != null; }
-    function userDoc() { return get(/databases/$(database)/documents/users/$(request.auth.uid)).data; }
-    function inSchool(schoolId) { return isAuth() && userDoc().schoolId == schoolId; }
-    function isAdmin() { return isAuth() && userDoc().role in ['proprietor','admin','bursar']; }
+    function isAuth() {
+      return request.auth != null;
+    }
+    
+    function getUserData() {
+      return exists(/databases/$(database)/documents/users/$(request.auth.uid))
+        ? get(/databases/$(database)/documents/users/$(request.auth.uid)).data
+        : {};
+    }
+    
+    function isSuperAdmin() {
+      return isAuth() && (
+        (request.auth.token != null && 'email' in request.auth.token && request.auth.token.email != null && request.auth.token.email.lower() == 'easykelchimdikejohn@gmail.com') ||
+        (request.auth.token != null && 'role' in request.auth.token && request.auth.token.role == 'super_admin') ||
+        (getUserData().get('role', '') == 'super_admin')
+      );
+    }
+    
+    function inSchool(schoolId) {
+      return isAuth() && (
+        isSuperAdmin() ||
+        (request.auth.token != null && 'schoolId' in request.auth.token && request.auth.token.schoolId == schoolId) ||
+        (getUserData().get('schoolId', '') == schoolId)
+      );
+    }
+    
+    function isAdmin() {
+      return isAuth() && (
+        isSuperAdmin() ||
+        (request.auth.token != null && 'role' in request.auth.token && request.auth.token.role in ['proprietor', 'admin', 'bursar', 'super_admin']) ||
+        (getUserData().get('role', '') in ['proprietor', 'admin', 'bursar', 'super_admin'])
+      );
+    }
 
     match /users/{uid} {
-      allow read, write: if isAuth() && request.auth.uid == uid;
+      allow read, write: if isAuth() && (request.auth.uid == uid || isSuperAdmin());
     }
+
     match /schools/{schoolId} {
-      allow read:   if inSchool(schoolId);
+      allow read:   if isAuth();
       allow create: if isAuth();
-      allow update: if inSchool(schoolId) && isAdmin();
+      allow update, delete: if isSuperAdmin() || (inSchool(schoolId) && isAdmin());
     }
+
     match /sessions/{id} {
-      allow read:  if inSchool(resource.data.schoolId);
-      allow write: if isAdmin() && inSchool(request.resource.data.schoolId);
-    }
-    match /students/{id} {
       allow read:   if inSchool(resource.data.schoolId);
       allow create: if isAdmin() && inSchool(request.resource.data.schoolId);
       allow update: if isAdmin() && inSchool(resource.data.schoolId);
       allow delete: if isAdmin() && inSchool(resource.data.schoolId);
     }
+
+    match /students/{id} {
+      allow read:   if inSchool(resource.data.schoolId);
+      allow create: if isAuth() && inSchool(request.resource.data.schoolId);
+      allow update: if isAuth() && inSchool(resource.data.schoolId);
+      allow delete: if isAdmin() && inSchool(resource.data.schoolId);
+    }
+
     match /classes/{id} {
-      allow read:  if inSchool(resource.data.schoolId);
-      allow write: if isAdmin() && inSchool(request.resource.data.schoolId);
+      allow read:   if inSchool(resource.data.schoolId);
+      allow create: if isAdmin() && inSchool(request.resource.data.schoolId);
+      allow update: if isAdmin() && inSchool(resource.data.schoolId);
+      allow delete: if isAdmin() && inSchool(resource.data.schoolId);
     }
+
     match /subjects/{id} {
-      allow read:  if inSchool(resource.data.schoolId);
-      allow write: if isAdmin() && inSchool(request.resource.data.schoolId);
+      allow read:   if inSchool(resource.data.schoolId);
+      allow create: if isAdmin() && inSchool(request.resource.data.schoolId);
+      allow update: if isAdmin() && inSchool(resource.data.schoolId);
+      allow delete: if isAdmin() && inSchool(resource.data.schoolId);
     }
+
     match /staff/{id} {
-      allow read:  if inSchool(resource.data.schoolId);
-      allow write: if isAdmin() && inSchool(request.resource.data.schoolId);
+      allow read:   if inSchool(resource.data.schoolId);
+      allow create: if isAdmin() && inSchool(request.resource.data.schoolId);
+      allow update: if isAdmin() && inSchool(resource.data.schoolId);
+      allow delete: if isAdmin() && inSchool(resource.data.schoolId);
     }
+
     match /feeStructures/{id} {
-      allow read:  if inSchool(resource.data.schoolId);
-      allow write: if isAdmin() && inSchool(request.resource.data.schoolId);
+      allow read:   if inSchool(resource.data.schoolId);
+      allow create: if isAdmin() && inSchool(request.resource.data.schoolId);
+      allow update: if isAdmin() && inSchool(resource.data.schoolId);
+      allow delete: if isAdmin() && inSchool(resource.data.schoolId);
     }
+
     match /feePayments/{id} {
-      allow read:  if inSchool(resource.data.schoolId);
-      allow write: if isAdmin() && inSchool(request.resource.data.schoolId);
+      allow read:   if inSchool(resource.data.schoolId);
+      allow create: if isAdmin() && inSchool(request.resource.data.schoolId);
+      allow update: if isAdmin() && inSchool(resource.data.schoolId);
+      allow delete: if isAdmin() && inSchool(resource.data.schoolId);
     }
+
     match /attendance/{id} {
-      allow read:  if inSchool(resource.data.schoolId);
-      allow write: if isAuth() && inSchool(request.resource.data.schoolId);
+      allow read:   if inSchool(resource.data.schoolId);
+      allow create: if isAuth() && inSchool(request.resource.data.schoolId);
+      allow update: if isAuth() && inSchool(resource.data.schoolId);
+      allow delete: if isAuth() && inSchool(resource.data.schoolId);
     }
+
     match /subjectResults/{id} {
-      allow read:  if inSchool(resource.data.schoolId);
-      allow write: if isAuth() && inSchool(request.resource.data.schoolId);
+      allow read:   if inSchool(resource.data.schoolId);
+      allow create: if isAuth() && inSchool(request.resource.data.schoolId);
+      allow update: if isAuth() && inSchool(resource.data.schoolId);
+      allow delete: if isAuth() && inSchool(resource.data.schoolId);
     }
+
+    match /exams/{id} {
+      allow read:   if inSchool(resource.data.schoolId);
+      allow create: if isAuth() && inSchool(request.resource.data.schoolId);
+      allow update: if isAuth() && inSchool(resource.data.schoolId);
+      allow delete: if isAuth() && inSchool(resource.data.schoolId);
+    }
+
     match /messages/{id} {
       allow read:   if inSchool(resource.data.schoolId);
       allow create: if isAdmin() && inSchool(request.resource.data.schoolId);
+      allow update: if isAdmin() && inSchool(resource.data.schoolId);
+      allow delete: if isAdmin() && inSchool(resource.data.schoolId);
     }
   }
 }

@@ -29,12 +29,15 @@ export default function FeesPage() {
     setFetchError(false);
 
     Promise.all([
-      getDocs(query(collection(db, "feePayments"), where("schoolId", "==", schoolId), orderBy("createdAt", "desc"))),
+      getDocs(query(collection(db, "feePayments"), where("schoolId", "==", schoolId))),
       getDocs(query(collection(db, "students"), where("schoolId", "==", schoolId))),
       getDocs(query(collection(db, "classes"), where("schoolId", "==", schoolId))),
     ])
       .then(([paymentsSnap, studentsSnap, classesSnap]) => {
-        setPayments(paymentsSnap.docs.map(d => ({ id: d.id, ...d.data() } as FeePayment)));
+        const pList = paymentsSnap.docs
+          .map(d => ({ id: d.id, ...d.data() } as FeePayment))
+          .sort((a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime());
+        setPayments(pList);
 
         const sMap: Record<string, Student> = {};
         studentsSnap.docs.forEach(d => { sMap[d.id] = { id: d.id, ...d.data() } as Student; });

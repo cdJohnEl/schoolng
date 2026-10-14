@@ -19,8 +19,13 @@ export default function StaffPage() {
 
   useEffect(() => {
     if (!schoolId) { setLoading(false); return; }
-    getDocs(query(collection(db, "staff"), where("schoolId", "==", schoolId), orderBy("createdAt", "desc")))
-      .then(snap => setStaff(snap.docs.map(d => ({ id: d.id, ...d.data() } as Staff))))
+    getDocs(query(collection(db, "staff"), where("schoolId", "==", schoolId)))
+      .then(snap => {
+        const sList = snap.docs
+          .map(d => ({ id: d.id, ...d.data() } as Staff))
+          .sort((a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime());
+        setStaff(sList);
+      })
       .catch(() => setFetchError(true))
       .finally(() => setLoading(false));
   }, [schoolId]);

@@ -27,8 +27,13 @@ export default function NewStudentPage() {
 
   useEffect(() => {
     if (!schoolId) return;
-    getDocs(query(collection(db, "classes"), where("schoolId", "==", schoolId), orderBy("order", "asc")))
-      .then(snap => setClasses(snap.docs.map(d => ({ id: d.id, ...d.data() } as SchoolClass))))
+    getDocs(query(collection(db, "classes"), where("schoolId", "==", schoolId)))
+      .then(snap => {
+        const cList = snap.docs
+          .map(d => ({ id: d.id, ...d.data() } as SchoolClass))
+          .sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
+        setClasses(cList);
+      })
       .catch(() => {});
   }, [schoolId]);
 

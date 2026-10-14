@@ -1,21 +1,32 @@
 "use client";
 import { useEffect } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, usePathname } from "next/navigation";
 import { useAuth } from "@/lib/auth-context";
 import Sidebar from "@/components/layout/Sidebar";
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {
   const { user, appUser, loading } = useAuth();
   const router = useRouter();
+  const pathname = usePathname();
 
   useEffect(() => {
     if (loading) return;
     if (!user) { router.replace("/auth/login"); return; }
-    // Only redirect if appUser is fully loaded AND has no schoolId
-    if (appUser !== null && !appUser.schoolId) {
+
+    // If teacher attempts to access restricted financial or administrative pages
+    if (appUser?.role === "teacher") {
+      const restrictedPrefixes = ["/fees", "/billing", "/staff", "/settings", "/communications"];
+      if (restrictedPrefixes.some(p => pathname.startsWith(p))) {
+        router.replace("/dashboard");
+        return;
+      }
+    }
+
+    // Only redirect to signup if not super admin and has no schoolId
+    if (appUser !== null && !appUser.schoolId && appUser.role !== "super_admin") {
       router.replace("/auth/signup");
     }
-  }, [user, appUser, loading, router]);
+  }, [user, appUser, loading, router, pathname]);
 
   // Show spinner while: initial load, OR user exists but appUser not yet fetched
   if (loading || (user && appUser === null)) return (

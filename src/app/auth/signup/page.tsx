@@ -39,7 +39,7 @@ export default function SignupPage() {
       const msg = err instanceof Error ? err.message : "";
       setError(msg.includes("email-already-in-use")
         ? "An account with this email already exists."
-        : "Something went wrong. Please try again.");
+        : msg || "Something went wrong. Please try again.");
     } finally {
       setLoading(false);
     }
@@ -60,6 +60,15 @@ export default function SignupPage() {
       // Write school doc and update user doc with schoolId
       await setDoc(doc(db, "schools", schoolId), school);
       await setDoc(doc(db, "users", user.uid), { schoolId }, { merge: true });
+
+      // Automatically pre-load standard classes and subjects
+      try {
+        const { populateDefaultSchoolData } = await import("@/lib/school-defaults");
+        await populateDefaultSchoolData(schoolId);
+      } catch (seedErr) {
+        console.warn("Could not seed default subjects/classes:", seedErr);
+      }
+
       // CRITICAL: refresh in-memory appUser so AppLayout sees the new schoolId
       await refreshAppUser();
       router.push("/dashboard");

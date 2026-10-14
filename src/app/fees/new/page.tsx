@@ -36,8 +36,13 @@ export default function RecordPaymentPage() {
   // Load classes
   useEffect(() => {
     if (!schoolId) return;
-    getDocs(query(collection(db, "classes"), where("schoolId", "==", schoolId), orderBy("order", "asc")))
-      .then(snap => setClasses(snap.docs.map(d => ({ id: d.id, ...d.data() } as SchoolClass))))
+    getDocs(query(collection(db, "classes"), where("schoolId", "==", schoolId)))
+      .then(snap => {
+        const cList = snap.docs
+          .map(d => ({ id: d.id, ...d.data() } as SchoolClass))
+          .sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
+        setClasses(cList);
+      })
       .catch(() => {});
   }, [schoolId]);
 
@@ -49,9 +54,13 @@ export default function RecordPaymentPage() {
       where("schoolId", "==", schoolId),
       where("classId", "==", form.classId),
       where("status", "==", "active"),
-      orderBy("lastName", "asc"),
     ))
-      .then(snap => setStudents(snap.docs.map(d => ({ id: d.id, ...d.data() } as Student))))
+      .then(snap => {
+        const sList = snap.docs
+          .map(d => ({ id: d.id, ...d.data() } as Student))
+          .sort((a, b) => (a.lastName || "").localeCompare(b.lastName || ""));
+        setStudents(sList);
+      })
       .catch(() => {});
   }, [form.classId, schoolId]);
 

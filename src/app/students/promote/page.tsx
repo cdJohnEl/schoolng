@@ -34,11 +34,13 @@ export default function PromotePage() {
   useEffect(() => {
     if (!schoolId) { setLoading(false); return; }
     Promise.all([
-      getDocs(query(collection(db, "classes"), where("schoolId", "==", schoolId), orderBy("order", "asc"))),
+      getDocs(query(collection(db, "classes"), where("schoolId", "==", schoolId))),
       getDocs(query(collection(db, "students"), where("schoolId", "==", schoolId), where("status", "==", "active"))),
     ])
       .then(([classSnap, studentSnap]) => {
-        const classes = classSnap.docs.map(d => ({ id: d.id, ...d.data() } as SchoolClass));
+        const classes = classSnap.docs
+          .map(d => ({ id: d.id, ...d.data() } as SchoolClass))
+          .sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
         const students = studentSnap.docs.map(d => ({ id: d.id, ...d.data() } as Student));
 
         // Map each class to its next class

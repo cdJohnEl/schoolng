@@ -27,11 +27,14 @@ export default function StudentsPage() {
     if (!schoolId) { setLoading(false); return; }
     setFetchError(false);
     Promise.all([
-      getDocs(query(collection(db, "students"), where("schoolId", "==", schoolId), orderBy("createdAt", "desc"))),
+      getDocs(query(collection(db, "students"), where("schoolId", "==", schoolId))),
       getDocs(query(collection(db, "classes"), where("schoolId", "==", schoolId))),
     ])
       .then(([studentsSnap, classesSnap]) => {
-        setStudents(studentsSnap.docs.map(d => ({ id: d.id, ...d.data() } as Student)));
+        const sList = studentsSnap.docs
+          .map(d => ({ id: d.id, ...d.data() } as Student))
+          .sort((a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime());
+        setStudents(sList);
         const cMap: Record<string, string> = {};
         classesSnap.docs.forEach(d => {
           const c = d.data() as SchoolClass;

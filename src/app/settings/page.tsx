@@ -41,15 +41,21 @@ export default function SettingsPage() {
     if (!schoolId) { setLoadingData(false); return; }
     Promise.all([
       getDoc(doc(db, "schools", schoolId)),
-      getDocs(query(collection(db, "classes"),  where("schoolId", "==", schoolId), orderBy("order", "asc"))),
+      getDocs(query(collection(db, "classes"),  where("schoolId", "==", schoolId))),
       getDocs(query(collection(db, "subjects"), where("schoolId", "==", schoolId))),
-      getDocs(query(collection(db, "sessions"), where("schoolId", "==", schoolId), orderBy("createdAt", "desc"))),
+      getDocs(query(collection(db, "sessions"), where("schoolId", "==", schoolId))),
     ])
       .then(([schoolSnap, classSnap, subSnap, sessSnap]) => {
         if (schoolSnap.exists()) setSchool(schoolSnap.data() as School);
-        setClasses(classSnap.docs.map(d => ({ id: d.id, ...d.data() } as SchoolClass)));
+        const cList = classSnap.docs
+          .map(d => ({ id: d.id, ...d.data() } as SchoolClass))
+          .sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
+        setClasses(cList);
         setSubjects(subSnap.docs.map(d => ({ id: d.id, ...d.data() } as Subject)));
-        setSessions(sessSnap.docs.map(d => ({ id: d.id, ...d.data() } as AcademicSession)));
+        const sList = sessSnap.docs
+          .map(d => ({ id: d.id, ...d.data() } as AcademicSession))
+          .sort((a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime());
+        setSessions(sList);
       })
       .catch(() => toast("Failed to load settings", "error"))
       .finally(() => setLoadingData(false));
@@ -100,6 +106,19 @@ export default function SettingsPage() {
     await deleteDoc(doc(db, "subjects", id));
     setSubjects(prev => prev.filter(s => s.id !== id));
     toast("Subject removed");
+  };
+
+  const preloadStandardSubjects = async () => {
+    if (!schoolId) return;
+    try {
+      const { populateDefaultSubjectsOnly } = await import("@/lib/school-defaults");
+      await populateDefaultSubjectsOnly(schoolId);
+      const snap = await getDocs(query(collection(db, "subjects"), where("schoolId", "==", schoolId)));
+      setSubjects(snap.docs.map(d => ({ id: d.id, ...d.data() } as Subject)));
+      toast("Pre-loaded 20 standard Nigerian subjects");
+    } catch {
+      toast("Failed to load standard subjects", "error");
+    }
   };
 
   const toggleSubjectClass = async (subjectId: string, classId: string) => {
@@ -215,7 +234,7 @@ export default function SettingsPage() {
               {tab === "sessions" && (
                 <div className="space-y-4">
                   <div className="bg-blue-50 border border-blue-100 rounded-xl p-4 text-xs text-blue-700 leading-relaxed">
-                    <strong>How sessions work:</strong> Each academic year is a "session" (e.g. 2025/2026).
+                    <strong>How sessions work:</strong> Each academic year is a &quot;session&quot; (e.g. 2025/2026).
                     Create a session, set it as Active, then update the Current Term as the school year progresses.
                     All student records, results, and attendance are tagged to the active session.
                   </div>
@@ -368,10 +387,22 @@ export default function SettingsPage() {
               {tab === "subjects" && (
                 <div className="space-y-4">
                   <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-6">
-                    <h2 className="text-sm font-semibold text-gray-900 mb-4">Add subject</h2>
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
+                      <div>
+                        <h2 className="text-sm font-semibold text-gray-900">Manage Subjects</h2>
+                        <p className="text-xs text-muted-foreground mt-0.5">Add custom subjects or pre-load the official 20 Nigerian NERDC curriculum subjects</p>
+                      </div>
+                      <button
+                        onClick={preloadStandardSubjects}
+                        type="button"
+                        className="self-start sm:self-auto px-3 py-1.5 bg-brand-50 hover:bg-brand-100 text-brand-700 border border-brand-200 text-xs font-medium rounded-lg transition-colors flex items-center gap-1.5"
+                      >
+                        ⚡ Pre-load 20 Standard Subjects
+                      </button>
+                    </div>
                     <div className="flex gap-3">
                       <input value={newSubjectName} onChange={e => setNewSubjectName(e.target.value)}
-                        placeholder="e.g. Mathematics, English Language…"
+                        placeholder="e.g. Further Mathematics, French, Technical Drawing…"
                         className={`${INPUT} flex-1`}
                         onKeyDown={e => { if (e.key === "Enter") { e.preventDefault(); addSubject(); } }} />
                       <button onClick={addSubject} disabled={!newSubjectName}
@@ -380,6 +411,18 @@ export default function SettingsPage() {
                       </button>
                     </div>
                   </div>
+
+                  {subjects.length === 0 && (
+                    <div className="bg-white rounded-xl border border-dashed border-gray-300 p-8 text-center space-y-3">
+                      <p className="text-sm text-gray-600">No subjects configured yet for this school.</p>
+                      <button
+                        onClick={preloadStandardSubjects}
+                        className="px-4 py-2 bg-brand-600 hover:bg-brand-700 text-white text-sm font-medium rounded-lg transition-colors inline-flex items-center gap-2"
+                      >
+                        ⚡ Pre-load Standard Nigerian Subjects Now
+                      </button>
+                    </div>
+                  )}
 
                   {subjects.length > 0 && (
                     <div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">

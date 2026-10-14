@@ -40,11 +40,13 @@ export default function ResultsPage() {
   useEffect(() => {
     if (!schoolId) return;
     Promise.all([
-      getDocs(query(collection(db, "classes"),  where("schoolId", "==", schoolId), orderBy("order", "asc"))),
+      getDocs(query(collection(db, "classes"),  where("schoolId", "==", schoolId))),
       getDocs(query(collection(db, "subjects"), where("schoolId", "==", schoolId))),
     ])
       .then(([cls, subs]) => {
-        const c = cls.docs.map(d => ({ id: d.id, ...d.data() } as SchoolClass));
+        const c = cls.docs
+          .map(d => ({ id: d.id, ...d.data() } as SchoolClass))
+          .sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
         const s = subs.docs.map(d => ({ id: d.id, ...d.data() } as Subject));
         setClasses(c);
         setSubjects(s);
@@ -64,10 +66,11 @@ export default function ResultsPage() {
       where("schoolId", "==", schoolId),
       where("classId", "==", classId),
       where("status", "==", "active"),
-      orderBy("lastName", "asc"),
     ))
       .then(async snap => {
-        const students = snap.docs.map(d => ({ id: d.id, ...d.data() } as Student));
+        const students = snap.docs
+          .map(d => ({ id: d.id, ...d.data() } as Student))
+          .sort((a, b) => (a.lastName || "").localeCompare(b.lastName || ""));
 
         // Pre-load existing scores if subject is selected
         let existingMap: Record<string, { ca: number; exam: number }> = {};

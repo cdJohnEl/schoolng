@@ -1,0 +1,6 @@
+{
+  "name": "SchoolNG",
+  "description": "School management platform for students, fees, attendance, results, and report cards.",
+  "permissions": [],
+  "capabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

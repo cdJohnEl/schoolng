@@ -28,11 +28,14 @@ export default function CommunicationsPage() {
   useEffect(() => {
     if (!schoolId) { setLoading(false); return; }
     Promise.all([
-      getDocs(query(collection(db, "messages"), where("schoolId", "==", schoolId), orderBy("createdAt", "desc"))),
+      getDocs(query(collection(db, "messages"), where("schoolId", "==", schoolId))),
       getDocs(query(collection(db, "classes"), where("schoolId", "==", schoolId))),
     ])
       .then(([msgSnap, clsSnap]) => {
-        setMessages(msgSnap.docs.map(d => ({ id: d.id, ...d.data() } as Message)));
+        const mList = msgSnap.docs
+          .map(d => ({ id: d.id, ...d.data() } as Message))
+          .sort((a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime());
+        setMessages(mList);
         setClasses(clsSnap.docs.map(d => ({ id: d.id, ...d.data() } as SchoolClass)));
       })
       .catch(() => setFetchError(true))

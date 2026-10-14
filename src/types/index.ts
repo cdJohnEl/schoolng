@@ -246,7 +246,7 @@ export interface Message {
 }
 
 // ─── Auth / User ───────────────────────────────────────────────────────────
-export type UserRole = "proprietor" | "admin" | "teacher" | "bursar";
+export type UserRole = "proprietor" | "admin" | "teacher" | "bursar" | "super_admin";
 
 export interface AppUser {
   uid: string;
@@ -257,6 +257,29 @@ export interface AppUser {
   staffId?: string;
   createdAt: string;
 }
+
+export const DEFAULT_NIGERIAN_SUBJECTS = [
+  { name: "Mathematics", code: "MTH" },
+  { name: "English Language", code: "ENG" },
+  { name: "Basic Science", code: "BSC" },
+  { name: "Basic Technology", code: "BST" },
+  { name: "Civic Education", code: "CIV" },
+  { name: "Social Studies", code: "SOS" },
+  { name: "Agricultural Science", code: "AGR" },
+  { name: "Computer Studies (ICT)", code: "ICT" },
+  { name: "Physical & Health Education", code: "PHE" },
+  { name: "Christian Religious Studies", code: "CRS" },
+  { name: "Islamic Religious Studies", code: "IRS" },
+  { name: "Business Studies", code: "BUS" },
+  { name: "Physics", code: "PHY" },
+  { name: "Chemistry", code: "CHM" },
+  { name: "Biology", code: "BIO" },
+  { name: "Economics", code: "ECO" },
+  { name: "Government", code: "GOV" },
+  { name: "Literature-in-English", code: "LIT" },
+  { name: "Commerce", code: "COM" },
+  { name: "Financial Accounting", code: "ACC" },
+];
 
 // ─── Nigerian school helpers ────────────────────────────────────────────────
 export const NIGERIAN_CLASSES: { name: string; level: SchoolLevel; order: number }[] = [
@@ -321,3 +344,52 @@ export const PRINCIPAL_REMARKS = [
   "Must be more serious with studies.",
   "Performance is below expectation. See me.",
 ];
+
+// ─── Tests & Exams ────────────────────────────────────────────────────────
+export type ExamType = "ca" | "mid_term" | "quiz" | "exam";
+export type QuestionType = "mcq" | "theory";
+export type ExamQuestionMode = "mcq_only" | "theory_only" | "both";
+
+export interface QuestionOption {
+  id: string; // "A", "B", "C", "D"
+  text: string;
+}
+
+export interface ExamQuestion {
+  id: string;
+  type: QuestionType; // "mcq" or "theory"
+  section?: string;   // e.g. "Section A: Multiple Choice" | "Section B: Theory / Essay"
+  questionNumber: number;
+  prompt: string;
+  marks: number;
+  // Multiple Choice Questions (MCQs):
+  options?: QuestionOption[];
+  correctOption?: string; // "A", "B", "C", "D"
+  explanation?: string;
+  // Theory / Essay Questions:
+  rubricOrGuide?: string; // Marking scheme / points to look for
+  subQuestions?: { label: string; prompt: string; marks: number }[];
+}
+
+export interface ExamAssessment {
+  id: string;
+  schoolId: string;
+  title: string;
+  type: ExamType;
+  questionMode?: ExamQuestionMode;
+  subjectId: string;
+  subjectName: string;
+  classId: string;
+  className: string;
+  sessionId?: string;
+  term?: Term;
+  date: string;
+  duration: string;
+  maxScore: number;
+  instructions?: string;
+  questions?: ExamQuestion[];
+  totalQuestions?: number;
+  createdBy?: string;
+  createdAt: string;
+  updatedAt?: string;
+}

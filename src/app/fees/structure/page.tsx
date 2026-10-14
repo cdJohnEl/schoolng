@@ -45,11 +45,14 @@ export default function FeeStructurePage() {
   useEffect(() => {
     if (!schoolId) { setLoading(false); return; }
     Promise.all([
-      getDocs(query(collection(db, "classes"), where("schoolId", "==", schoolId), orderBy("order", "asc"))),
+      getDocs(query(collection(db, "classes"), where("schoolId", "==", schoolId))),
       getDocs(query(collection(db, "feeStructures"), where("schoolId", "==", schoolId))),
     ])
       .then(([classSnap, structSnap]) => {
-        setClasses(classSnap.docs.map(d => ({ id: d.id, ...d.data() } as SchoolClass)));
+        const cList = classSnap.docs
+          .map(d => ({ id: d.id, ...d.data() } as SchoolClass))
+          .sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
+        setClasses(cList);
         const map: Record<string, FeeStructure> = {};
         structSnap.docs.forEach(d => {
           const s = { id: d.id, ...d.data() } as FeeStructure;
@@ -218,7 +221,7 @@ export default function FeeStructurePage() {
                     <div className="border-t border-gray-100 px-5 py-4 space-y-3">
                       {items.length === 0 ? (
                         <p className="text-sm text-muted-foreground text-center py-4">
-                          No fee items yet. Click "Add fee item" to start.
+                          No fee items yet. Click &quot;Add fee item&quot; to start.
                         </p>
                       ) : (
                         <div className="space-y-2">

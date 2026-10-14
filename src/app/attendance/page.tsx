@@ -40,9 +40,11 @@ export default function AttendancePage() {
 
   useEffect(() => {
     if (!schoolId) return;
-    getDocs(query(collection(db, "classes"), where("schoolId", "==", schoolId), orderBy("order", "asc")))
+    getDocs(query(collection(db, "classes"), where("schoolId", "==", schoolId)))
       .then(snap => {
-        const cls = snap.docs.map(d => ({ id: d.id, ...d.data() } as SchoolClass));
+        const cls = snap.docs
+          .map(d => ({ id: d.id, ...d.data() } as SchoolClass))
+          .sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
         setClasses(cls);
         if (cls.length > 0) setSelectedClass(cls[0].id);
       })
@@ -57,10 +59,11 @@ export default function AttendancePage() {
       where("schoolId", "==", schoolId),
       where("classId", "==", selectedClass),
       where("status", "==", "active"),
-      orderBy("lastName", "asc"),
     ))
       .then(snap => {
-        const students = snap.docs.map(d => ({ id: d.id, ...d.data() } as Student));
+        const students = snap.docs
+          .map(d => ({ id: d.id, ...d.data() } as Student))
+          .sort((a, b) => (a.lastName || "").localeCompare(b.lastName || ""));
         setRows(students.map(s => ({ student: s, status: "present", note: "" })));
       })
       .catch(() => setFetchError(true))

@@ -40,16 +40,26 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           if (snap.exists()) {
             setAppUser(snap.data() as AppUser);
           } else {
-            console.error("User doc missing in Firestore. Signing out.");
-            await firebaseSignOut(auth);
-            setAppUser(null);
-            setUser(null);
+            // If user doc not found yet (e.g. during signup race condition), create default user profile
+            const defaultUser: AppUser = {
+              uid: firebaseUser.uid,
+              email: firebaseUser.email || "",
+              displayName: firebaseUser.displayName || (firebaseUser.email ? firebaseUser.email.split("@")[0] : "Admin"),
+              schoolId: "",
+              role: "proprietor",
+              createdAt: new Date().toISOString(),
+            };
+            try {
+              await setDoc(doc(db, "users", firebaseUser.uid), defaultUser, { merge: true });
+              setAppUser(defaultUser);
+            } catch (err) {
+              console.warn("Could not save initial user doc, using memory default:", err);
+              setAppUser(defaultUser);
+            }
           }
         } catch (error) {
-          console.error("Error fetching app user:", error);
-          await firebaseSignOut(auth);
+          console.warn("Error fetching app user profile:", error);
           setAppUser(null);
-          setUser(null);
         }
       } else {
         setAppUser(null);
@@ -60,7 +70,40 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const signIn = async (email: string, password: string) => {
-    await signInWithEmailAndPassword(auth, email, password);
+    // 1. Authenticate via server proxy (immune to client-side ad-blockers / iframe restrictions)
+    const res = await fetch("/api/auth/login", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email, password }),
+    });
+
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok || !data.success) {
+      throw new Error(data.error || "Invalid email or password");
+    }
+
+    // 2. Sign into client-side Firebase Auth with custom token so Firestore rules receive auth context
+    if (data.customToken) {
+      try {
+        const { signInWithCustomToken } = await import("firebase/auth");
+        await signInWithCustomToken(auth, data.customToken);
+      } catch (clientErr) {
+        console.warn("Client custom token signin note:", clientErr);
+        try {
+          await signInWithEmailAndPassword(auth, email, password);
+        } catch {
+          // If browser client fails (e.g. adblocker), continue with server authentication state
+        }
+      }
+    }
+
+    // 3. Immediately sync user and appUser state
+    if (auth.currentUser) {
+      setUser(auth.currentUser);
+    } else {
+      setUser(data.user as User);
+    }
+    setAppUser(data.appUser);
   };
 
   const signUp = async (email: string, password: string, displayName: string) => {

@@ -42,11 +42,13 @@ export default function ReportCardsPage() {
   useEffect(() => {
     if (!schoolId) return;
     Promise.all([
-      getDocs(query(collection(db, "classes"), where("schoolId", "==", schoolId), orderBy("order", "asc"))),
+      getDocs(query(collection(db, "classes"), where("schoolId", "==", schoolId))),
       getDoc(doc(db, "schools", schoolId)),
     ])
       .then(([cls, schoolSnap]) => {
-        const c = cls.docs.map(d => ({ id: d.id, ...d.data() } as SchoolClass));
+        const c = cls.docs
+          .map(d => ({ id: d.id, ...d.data() } as SchoolClass))
+          .sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
         setClasses(c);
         if (c.length > 0) setClassId(c[0].id);
         if (schoolSnap.exists()) setSchool(schoolSnap.data() as School);
@@ -59,12 +61,22 @@ export default function ReportCardsPage() {
     setLoading(true); setFetchError(false);
     try {
       const [studentsSnap, scoresSnap] = await Promise.all([
-        getDocs(query(collection(db, "students"), where("schoolId", "==", schoolId), where("classId", "==", classId), where("status", "==", "active"), orderBy("lastName", "asc"))),
+        getDocs(query(collection(db, "students"), where("schoolId", "==", schoolId), where("classId", "==", classId), where("status", "==", "active"))),
         getDocs(query(collection(db, "subjectResults"), where("schoolId", "==", schoolId), where("classId", "==", classId), where("term", "==", term))),
       ]);
 
-      const students = studentsSnap.docs.map(d => ({ id: d.id, ...d.data() } as Student));
-      const allScores = scoresSnap.docs.map(d => d.data());
+      const students = studentsSnap.docs
+        .map(d => ({ id: d.id, ...d.data() } as Student))
+        .sort((a, b) => (a.lastName || "").localeCompare(b.lastName || ""));
+      const allScores = scoresSnap.docs.map(d => d.data() as {
+        studentId: string;
+        subjectName: string;
+        ca: number;
+        exam: number;
+        total: number;
+        grade?: string;
+        remark?: string;
+      });
 
       const studentReports: StudentReport[] = students.map(student => {
         const studentScores = allScores
@@ -86,7 +98,7 @@ export default function ReportCardsPage() {
       sorted.forEach((r, i) => { r.position = i + 1; });
 
       // Compute per-subject position across the class
-      const subjectNames = [...new Set(allScores.map((s: {subjectName: string}) => s.subjectName))];
+      const subjectNames = Array.from(new Set(allScores.map(s => s.subjectName)));
       subjectNames.forEach(subName => {
         const subScores = studentReports
           .map(r => ({ report: r, score: r.scores.find(s => s.subjectName === subName) }))
